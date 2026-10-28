@@ -1,413 +1,104 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SECTOR-9: ЭХО</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Courier New', Courier, monospace;
-            user-select: none;
-        }
-        body {
-            background-color: #080808;
-            color: #d0d0d0;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 100vh;
-            padding: 15px;
-            overflow-x: hidden;
-            position: relative;
-        }
-        body::before {
-            content: " ";
-            display: block;
-            position: fixed;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
-            z-index: 999;
-            background-size: 100% 4px, 6px 100%;
-            pointer-events: none;
-        }
-        .header {
-            border-bottom: 1px solid #441111;
-            padding-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 10px;
-            color: #ff4d4d;
-            letter-spacing: 1px;
-        }
-        .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 5px;
-            background: #110808;
-            border: 1px solid #2a0e0e;
-            padding: 6px;
-            margin-top: 8px;
-            font-size: 10px;
-            color: #aaaaaa;
-            text-align: center;
-        }
-        .stats-bar span b { color: #ff4d4d; }
-        .terminal-screen {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 15px 0;
-        }
-        .title {
-            font-size: 20px;
-            font-weight: bold;
-            color: #ffffff;
-            margin-bottom: 8px;
-            letter-spacing: 2px;
-            text-shadow: 0 0 8px rgba(255, 77, 77, 0.6);
-        }
-        .story-text {
-            font-size: 12px;
-            color: #c0c0c0;
-            margin-bottom: 15px;
-            line-height: 1.5;
-            text-align: left;
-            width: 100%;
-            max-width: 500px;
-            background: rgba(15, 10, 10, 0.7);
-            border: 1px solid #221111;
-            padding: 12px;
-            border-radius: 4px;
-            white-space: pre-line;
-            max-height: 45vh;
-            overflow-y: auto;
-        }
-        .inventory-box {
-            font-size: 10px;
-            color: #888888;
-            margin-bottom: 10px;
-            text-align: left;
-            width: 100%;
-            max-width: 500px;
-            border-left: 2px solid #ff4d4d;
-            padding-left: 8px;
-        }
-        .choices {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            width: 100%;
-            max-width: 500px;
-        }
-        .btn {
-            background-color: #120a0a;
-            color: #ff5555;
-            border: 1px solid #4a1515;
-            padding: 10px;
-            font-size: 11px;
-            cursor: pointer;
-            text-align: left;
-            letter-spacing: 1px;
-            transition: all 0.2s;
-            border-radius: 3px;
-        }
-        .btn:active, .btn:hover {
-            background-color: #2e0d0d;
-            border-color: #ff4d4d;
-            box-shadow: 0 0 10px rgba(255, 77, 77, 0.3);
-        }
-        .btn:disabled {
-            background-color: #080808;
-            color: #444444;
-            border-color: #222222;
-            cursor: not-allowed;
-        }
-        .footer {
-            font-size: 9px;
-            color: #555;
-            text-align: center;
-            border-top: 1px solid #1a1a1a;
-            padding-top: 8px;
-            margin-top: 10px;
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090b">
+  <title>SECTOR-9: ЭХО</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
+  <div class="noise"></div>
+  <main class="shell">
+    <header class="topline">
+      <span class="dot"></span><span>SECURE CONNECTION // SECTOR-9</span>
+      <span id="clock">03:17</span>
+    </header>
 
-    <div class="header">
-        <span>SECURE CONNECTION // SECTOR-9</span>
-        <span id="player-id">OPERATOR: LOCAL</span>
-    </div>
+    <section id="home" class="screen">
+      <div class="hero-mark">Э Х О</div>
+      <p class="subtitle">ОПЕРАТОР, ВЫ НА СВЯЗИ?</p>
+      <div class="warning">НЕ ОТВЕЧАЙТЕ НА ГОЛОС ИЗ КОРИДОРА</div>
+      <button id="continueBtn" class="button secondary hidden">ПРОДОЛЖИТЬ</button>
+      <button id="newBtn" class="button primary">НОВАЯ ИГРА</button>
+      <button id="archiveBtn" class="button secondary">АРХИВ УЛИК</button>
+      <div class="build">BUILD 0.9.17 // LAST SIGNAL 03:17</div>
+    </section>
 
-    <div class="stats-bar" id="stats-panel" style="display:none;">
-        <span>HP: <b id="hp-val">100</b>%</span>
-        <span>РАССУДОК: <b id="sanity-val">100</b>%</span>
-        <span>ГЛАВА: <b id="chapter-val">1</b></span>
-    </div>
+    <section id="difficulty" class="screen hidden">
+      <button class="back" data-screen="home">← НАЗАД</button>
+      <h1>ВЫБЕРИ УРОВЕНЬ УГРОЗЫ</h1>
+      <p class="muted">Некоторые решения имеют необратимые последствия.</p>
+      <button class="difficulty-card" data-difficulty="easy">
+        <strong>ЛЁГКИЙ</strong><small>ИССЛЕДОВАТЕЛЬ</small>
+        <span>Больше ресурсов, заметные подсказки, медленный Смотритель.</span>
+      </button>
+      <button class="difficulty-card selected" data-difficulty="medium">
+        <strong>СРЕДНИЙ</strong><small>ОПЕРАТОР</small>
+        <span>Ограниченные припасы, сложные загадки, серьёзные последствия.</span>
+      </button>
+      <button class="difficulty-card danger" data-difficulty="terror">
+        <strong>УЖАСАЮЩИЙ</strong><small>НЕ ВОЗВРАЩАЙСЯ</small>
+        <span>Минимум ресурсов, агрессивный Смотритель, почти никаких подсказок.</span>
+      </button>
+      <button id="startGameBtn" class="button primary">НАЧАТЬ СМЕНУ</button>
+      <p class="tiny">Существующее сохранение будет заменено только после подтверждения.</p>
+    </section>
 
-    <div class="terminal-screen">
-        <div class="title" id="screen-title">S E C T O R - 9</div>
-        
-        <div class="inventory-box" id="inventory-display" style="display:none;">
-            ИНВЕНТАРЬ: <span id="inv-items">Пусто</span>
-        </div>
+    <section id="game" class="screen hidden">
+      <header class="gamehead">
+        <button id="menuBtn" class="icon-button">☰</button>
+        <div><div id="location" class="eyebrow">СЕКТОР A</div><h1 id="sceneTitle">Последняя смена</h1></div>
+        <div id="difficultyLabel" class="difficulty-label">СРЕДНИЙ</div>
+      </header>
+      <div class="stats">
+        <div><span>ЗДОРОВЬЕ</span><b id="health">100</b><i><em id="healthBar"></em></i></div>
+        <div><span>РАССУДОК</span><b id="sanity">100</b><i><em id="sanityBar"></em></i></div>
+        <div><span>ФОНАРЬ</span><b id="battery">82</b><i><em id="batteryBar"></em></i></div>
+        <div><span>УГРОЗА</span><b id="suspicion">8</b><i><em id="suspicionBar"></em></i></div>
+      </div>
+      <article class="story">
+        <div class="signal"><span class="pulse"></span> ВХОДЯЩИЙ СИГНАЛ</div>
+        <p id="storyText"></p>
+        <p id="resultText" class="result hidden"></p>
+      </article>
+      <div class="section-label">ВЫБЕРИ ДЕЙСТВИЕ // 3 ВАРИАНТА</div>
+      <div id="choices" class="choices"></div>
+      <div class="inventory-block">
+        <div class="section-label">ИНВЕНТАРЬ <span id="inventoryCount">0/6</span></div>
+        <div id="inventory" class="chips"></div>
+        <div class="section-label">АРХИВ УЛИК <span id="clueCount">0</span></div>
+        <div id="clues" class="chips"></div>
+      </div>
+      <div class="footerline">СОХРАНЕНИЕ АВТОМАТИЧЕСКОЕ <span id="saveStatus">●</span></div>
+    </section>
 
-        <div class="story-text" id="story-text">
-            ОПЕРАТОР, ВЫ НА СВЯЗИ?
+    <section id="ending" class="screen hidden">
+      <div class="hero-mark small">СИГНАЛ ЗАВЕРШЁН</div>
+      <div class="warning">CONNECTION LOST</div>
+      <h1 id="endingTitle"></h1>
+      <p id="endingText" class="ending-text"></p>
+      <button id="restartBtn" class="button primary">НОВАЯ СМЕНА</button>
+      <button id="endingArchiveBtn" class="button secondary">ПОСМОТРЕТЬ УЛИКИ</button>
+    </section>
 
-            Запуск протокола восстановления данных исследовательской станции «Сектор-9».
+    <section id="archive" class="screen hidden">
+      <button class="back" data-screen="home">← НАЗАД</button>
+      <h1>АРХИВ УЛИК</h1>
+      <p class="muted">Найденные доказательства сохраняются между сессиями.</p>
+      <div id="archiveList" class="archive-list"></div>
+    </section>
 
-            ВНИМАНИЕ: Все ваши решения фиксируются в архиве терминала.
-        </div>
-
-        <div class="choices" id="choices-container">
-            <button class="btn" onclick="initNewGame()">▸ НОВАЯ ИГРА</button>
-            <button class="btn" id="continue-btn" onclick="loadGame()" style="display:none;">▸ ПРОДОЛЖИТЬ</button>
-        </div>
-    </div>
-
-    <div class="footer">
-        BUILD 0.9.17 // LAST SIGNAL 03:17 // НЕ ОТВЕЧАЙТЕ НА ГОЛОС ИЗ КОРИДОРА
-    </div>
-
-    <script>
-        const tg = window.Telegram ? window.Telegram.WebApp : null;
-        if (tg) {
-            tg.ready();
-            tg.expand();
-            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                document.getElementById('player-id').innerText = 'OP: ' + tg.initDataUnsafe.user.first_name.toUpperCase();
-            }
-        }
-
-        // Состояние игрока
-        let player = {
-            currentScene: 'ch1_start',
-            chapter: 1,
-            hp: 100,
-            sanity: 100,
-            distortion: 0,
-            evaTrust: 0,
-            inventory: [],
-            flags: {}
-        };
-
-        // База сценарного графа (Главы 1-3 и развилки)
-        const storyData = {
-            'ch1_start': {
-                chapter: 1,
-                title: "ГЛАВА 1. ПОСЛЕДНЯЯ СМЕНА",
-                text: "23:40 // ОПЕРАТОРСКАЯ\n\nМониторы гудят. Пахнет горелой изоляцией. По документам комплекс «Сектор-9» запечатан 17 лет назад после пропажи 38 человек.\n\nРовно в 03:17 радиоприёмник пробивает треск: \n«...Если ты слышишь это, значит, они снова заставили тебя забыть. Не иди в жилой блок без ключ-карты Р-3». \n\nГолос из динамика принадлежит ТЕБЕ.",
-                choices: [
-                    { text: "1. Прослушать запись до конца", next: "ch1_listen", apply: (p) => p.sanity -= 10 },
-                    { text: "2. Переключить камеру на коридор", next: "ch1_camera", apply: (p) => p.distortion += 5 },
-                    { text: "3. Выдернуть питание радиоприёмника", next: "ch1_cut_power", apply: (p) => p.flags.cutPower = true }
-                ]
-            },
-            'ch1_listen': {
-                chapter: 1,
-                title: "СИГНАЛ // ТВОЙ ГОЛОС",
-                text: "«Смотритель уже в вентиляции. В столе лежит фонарь и кассета Оператора-0. Возьми их. Запись сделана 17 лет назад...»\n\nШум гаснет. Голова раскалывается от боли. На столе ты находишь тяжёлый фонарь.",
-                choices: [
-                    { text: "1. Забрать фонарь и кассету", next: "ch1_corridor", apply: (p) => { p.inventory.push("Фонарик", "Кассета #0"); } },
-                    { text: "2. Проверить тумбу оператора", next: "ch1_desk", apply: (p) => { p.inventory.push("Фонарик", "Аптечка"); } },
-                    { text: "3. Сразу заблокировать дверь", next: "ch1_barricade", apply: (p) => p.flags.barricaded = true }
-                ]
-            },
-            'ch1_camera': {
-                chapter: 1,
-                title: "КАМЕРА 09 // ОБЗОР",
-                text: "На чёрно-белом экране мигает коридор B. Возле знака «Жилой блок» стоит высокая силуэтная фигура. Она не движется, но смотрит прямо в объектив.\n\nИзображение искажается, по экрану идут кроваво-красные полосы.",
-                choices: [
-                    { text: "1. Сохранить стоп-кадр в архив", next: "ch1_corridor", apply: (p) => { p.flags.savedPhoto = true; p.inventory.push("Фотография"); } },
-                    { text: "2. Разбить монитор", next: "ch1_corridor", apply: (p) => { p.hp -= 15; p.sanity -= 10; } },
-                    { text: "3. Отключить всё освещение", next: "ch1_corridor", apply: (p) => p.flags.darkness = true }
-                ]
-            },
-            'ch1_cut_power': {
-                chapter: 1,
-                title: "ТЕМНОТА",
-                text: "Ты выдёргиваешь кабели. В темноте слышен отчётливый скрежет железа прямо над твоей головой — из вентиляционного люка.",
-                choices: [
-                    { text: "1. Включить аварийный свет", next: "ch1_corridor", apply: (p) => p.sanity -= 5 },
-                    { text: "2. Замереть и не дышать", next: "ch1_corridor", apply: (p) => p.sanity += 5 },
-                    { text: "3. Выскочить в коридор", next: "ch1_corridor", apply: (p) => p.hp -= 10 }
-                ]
-            },
-            'ch1_corridor': {
-                chapter: 1,
-                title: "ВЫХОД В СЕКТОР B",
-                text: "Ты выходишь в узкий коридор. Вода капает с потолка. Впереди развилка: направо — Жилой блок, налево — Медицинский сектор.\n\nНа стене висит Электрический щит.",
-                choices: [
-                    { text: "1. Исследовать Электрический щит", next: "ch1_puzzle_fuse" },
-                    { text: "2. Пойти в Жилой блок", next: "ch2_start" },
-                    { text: "3. Направить фонарь в Медицинский сектор", next: "ch3_start", req: (p) => p.inventory.includes("Фонарик") }
-                ]
-            },
-            'ch1_puzzle_fuse': {
-                chapter: 1,
-                title: "ЗАГАДКА // ЭЛЕКТРОЩИТ",
-                text: "Нужно подать питание. На щитке 3 тумблера: [1. Камеры], [2. Двери], [3. Вентиляция]. Какую комбинацию включить?",
-                choices: [
-                    { text: "1. Включить Камеры и Двери", next: "ch2_start", apply: (p) => { p.flags.powerOn = true; } },
-                    { text: "2. Включить Вентиляцию", next: "ch1_corridor", apply: (p) => { p.sanity -= 20; } },
-                    { text: "3. Попытаться забрать предохранитель", next: "ch1_corridor", apply: (p) => p.inventory.push("Предохранитель") }
-                ]
-            },
-            'ch2_start': {
-                chapter: 2,
-                title: "ГЛАВА 2. ЖИЛОЙ БЛОК",
-                text: "Двери со скрипом расходятся. Ты находишься среди заброшенных комнат персонала. \n\nВ комнате 404 на столе лежит личное дело. На фотографии работника — ТВОЕ ЛИЦО, но подпись гласит: «Оператор-0. Дата ликвидации: 2022 год».",
-                choices: [
-                    { text: "1. Забрать личное дело", next: "ch2_eva_call", apply: (p) => p.inventory.push("Личное дело") },
-                    { text: "2. Осмотреть зеркало в комнате", next: "ch2_mirror", apply: (p) => p.distortion += 15 },
-                    { text: "3. Спрятаться в шкафу (слышны шаги)", next: "ch2_hide" }
-                ]
-            },
-            'ch2_eva_call': {
-                chapter: 2,
-                title: "СВЯЗЬ // ДОКТОР ЕВА МОРОЗОВА",
-                text: "Рация на поясе оживает: \n«Оператор, не верь документам в 404! Это фантомные записи «Эхо». Я Доктор Ева Морозова, нахожусь в архиве. Мне нужна твоя помощь».",
-                choices: [
-                    { text: "1. Поверить Еве и спросить про Смотрителя", next: "ch3_start", apply: (p) => p.evaTrust += 10 },
-                    { text: "2. Обвинить Еву во лжи", next: "ch3_start", apply: (p) => p.evaTrust -= 10 },
-                    { text: "3. Показать ей фото из архива", next: "ch3_start", req: (p) => p.inventory.includes("Фотография"), apply: (p) => p.evaTrust += 20 }
-                ]
-            },
-            'ch2_mirror': {
-                chapter: 2,
-                title: "ИСКАЖЕНИЕ // ЗЕРКАЛО",
-                text: "В отражении зеркала ты видишь не себя, а забинтованную фигуру с номерами на груди. Отражение медленно поднимает руку и качает пальцем...",
-                choices: [
-                    { text: "1. Разбить зеркало", next: "ch3_start", apply: (p) => p.hp -= 10 },
-                    { text: "2. Отвернуться и уйти", next: "ch3_start", apply: (p) => p.sanity -= 15 },
-                    { text: "3. Прикоснуться к стеклу", next: "ch3_start", apply: (p) => p.distortion += 20 }
-                ]
-            },
-            'ch2_hide': {
-                chapter: 2,
-                title: "УКРЫТИЕ",
-                text: "Ты зажимаешь рот рукой в шкафу. Мимо медленно проходит Смотритель. Его длинные пальцы касаются створок шкафа, но затем он уходит дальше.",
-                choices: [
-                    { text: "1. Вылезти и бежать в Медсектор", next: "ch3_start" },
-                    { text: "2. Переждать ещё 5 минут", next: "ch3_start", apply: (p) => p.sanity += 10 },
-                    { text: "3. Оставить в шкафу ловушку", next: "ch3_start", req: (p) => p.inventory.includes("Предохранитель") }
-                ]
-            },
-            'ch3_start': {
-                chapter: 3,
-                title: "ГЛАВА 3. МЕДИЦИНСКИЙ СЕКТОР",
-                text: "Стены залиты зеленым светом. На операционном столе лежит диктофон. \n\nВнезапно тяжелая гермодверь сзади наглухо блокируется. В помещении начинает снижаться уровень кислорода.",
-                choices: [
-                    { text: "1. Использовать Аптечку для стимуляции дыхания", next: "ch1_start", req: (p) => p.inventory.includes("Аптечка"), apply: (p) => alert("Вы успешно прошли демо-версию первых трех глав!") },
-                    { text: "2. Взломать панель двери", next: "ch1_start", apply: (p) => alert("Вы успешно прошли демо-версию первых трех глав!") },
-                    { text: "3. Включить диктофон", next: "ch1_start", apply: (p) => alert("Вы успешно прошли демо-версию первых трех глав!") }
-                ]
-            }
-        };
-
-        function checkSave() {
-            if (localStorage.getItem('sector9_save')) {
-                document.getElementById('continue-btn').style.display = 'block';
-            }
-        }
-
-        function initNewGame() {
-            player = {
-                currentScene: 'ch1_start',
-                chapter: 1,
-                hp: 100,
-                sanity: 100,
-                distortion: 0,
-                evaTrust: 0,
-                inventory: [],
-                flags: {}
-            };
-            saveGame();
-            renderScene();
-        }
-
-        function saveGame() {
-            localStorage.setItem('sector9_save', JSON.stringify(player));
-        }
-
-        function loadGame() {
-            const data = localStorage.getItem('sector9_save');
-            if (data) {
-                player = JSON.parse(data);
-                renderScene();
-            }
-        }
-
-        function updateUI() {
-            document.getElementById('stats-panel').style.display = 'grid';
-            document.getElementById('inventory-display').style.display = 'block';
-            
-            // Ограничения характеристик
-            if (player.hp > 100) player.hp = 100;
-            if (player.sanity > 100) player.sanity = 100;
-            if (player.hp <= 0) {
-                alert("ВЫ ПОГИБЛИ. КОМПЛЕКС СТЁР ВАШИ ВОСПОМИНАНИЯ.");
-                initNewGame();
-                return;
-            }
-            if (player.sanity <= 0) {
-                player.sanity = 10;
-                player.distortion += 25;
-                alert("РАССУДОК НА НУЛЕ. Реальность вокруг вас исказилась.");
-            }
-
-            document.getElementById('hp-val').innerText = player.hp;
-            document.getElementById('sanity-val').innerText = player.sanity;
-            document.getElementById('chapter-val').innerText = player.chapter;
-            
-            const invText = player.inventory.length > 0 ? player.inventory.join(', ') : 'Пусто';
-            document.getElementById('inv-items').innerText = invText;
-        }
-
-        function renderScene() {
-            const scene = storyData[player.currentScene];
-            if (!scene) return;
-
-            player.chapter = scene.chapter;
-            updateUI();
-
-            document.getElementById('screen-title').innerText = scene.title;
-            document.getElementById('story-text').innerText = scene.text;
-
-            const container = document.getElementById('choices-container');
-            container.innerHTML = '';
-
-            scene.choices.forEach(choice => {
-                const btn = document.createElement('button');
-                btn.className = 'btn';
-                btn.innerText = choice.text;
-
-                // Проверка условий доступности выбора
-                if (choice.req && !choice.req(player)) {
-                    btn.disabled = true;
-                    btn.innerText += " [ТРЕБУЕТСЯ ПРЕДМЕТ]";
-                } else {
-                    btn.onclick = () => {
-                        if (choice.apply) choice.apply(player);
-                        player.currentScene = choice.next;
-                        saveGame();
-                        renderScene();
-                    };
-                }
-                container.appendChild(btn);
-            });
-        }
-
-        checkSave();
-    </script>
+    <section id="pause" class="screen hidden">
+      <h1>СМЕНА ПРИОСТАНОВЛЕНА</h1>
+      <p class="muted">Прогресс сохраняется автоматически.</p>
+      <button id="resumeBtn" class="button primary">ВЕРНУТЬСЯ</button>
+      <button id="pauseArchiveBtn" class="button secondary">АРХИВ УЛИК</button>
+      <button id="mainMenuBtn" class="button secondary">ГЛАВНОЕ МЕНЮ</button>
+    </section>
+    <div id="toast" class="toast hidden"></div>
+  </main>
+  <script src="/app.js"></script>
 </body>
 </html>
