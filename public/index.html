@@ -1,104 +1,375 @@
+
 <!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#08090b">
+  <meta name="description" content="SECTOR-9: ЭХО — психологический хоррор о памяти, экспериментах и трёх Смотрителях.">
   <title>SECTOR-9: ЭХО</title>
   <link rel="stylesheet" href="/style.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-  <div class="noise"></div>
-  <main class="shell">
+  <div class="noise" aria-hidden="true"></div>
+
+  <main class="shell" id="app">
     <header class="topline">
-      <span class="dot"></span><span>SECURE CONNECTION // SECTOR-9</span>
+      <span class="dot"></span>
+      <span>SECURE CONNECTION // SECTOR-9</span>
       <span id="clock">03:17</span>
     </header>
 
+    <!-- ГЛАВНОЕ МЕНЮ -->
     <section id="home" class="screen">
       <div class="hero-mark">Э Х О</div>
       <p class="subtitle">ОПЕРАТОР, ВЫ НА СВЯЗИ?</p>
       <div class="warning">НЕ ОТВЕЧАЙТЕ НА ГОЛОС ИЗ КОРИДОРА</div>
-      <button id="continueBtn" class="button secondary hidden">ПРОДОЛЖИТЬ</button>
-      <button id="newBtn" class="button primary">НОВАЯ ИГРА</button>
-      <button id="archiveBtn" class="button secondary">АРХИВ УЛИК</button>
-      <div class="build">BUILD 0.9.17 // LAST SIGNAL 03:17</div>
+
+      <button id="continueBtn" class="button secondary hidden">
+        ПРОДОЛЖИТЬ
+      </button>
+      <button id="newBtn" class="button primary">
+        НОВАЯ ИГРА
+      </button>
+      <button id="chapterSelectBtn" class="button secondary">
+        ВЫБОР ГЛАВ
+      </button>
+      <button id="archiveBtn" class="button secondary">
+        АРХИВ УЛИК
+      </button>
+
+      <div class="build">BUILD 1.0 // LAST SIGNAL 03:17</div>
     </section>
 
+    <!-- ВЫБОР СЛОЖНОСТИ -->
     <section id="difficulty" class="screen hidden">
       <button class="back" data-screen="home">← НАЗАД</button>
+
       <h1>ВЫБЕРИ УРОВЕНЬ УГРОЗЫ</h1>
-      <p class="muted">Некоторые решения имеют необратимые последствия.</p>
+      <p class="muted">
+        В комплексе нет безопасных решений. Каждая ошибка может стать последней.
+      </p>
+
       <button class="difficulty-card" data-difficulty="easy">
-        <strong>ЛЁГКИЙ</strong><small>ИССЛЕДОВАТЕЛЬ</small>
-        <span>Больше ресурсов, заметные подсказки, медленный Смотритель.</span>
+        <strong>ЛЁГКИЙ</strong>
+        <small>ИССЛЕДОВАТЕЛЬ</small>
+        <span>
+          Больше ресурсов, заметные подсказки, медленные Смотрители.
+        </span>
       </button>
+
       <button class="difficulty-card selected" data-difficulty="medium">
-        <strong>СРЕДНИЙ</strong><small>ОПЕРАТОР</small>
-        <span>Ограниченные припасы, сложные загадки, серьёзные последствия.</span>
+        <strong>СРЕДНИЙ</strong>
+        <small>ОПЕРАТОР</small>
+        <span>
+          Ограниченные припасы, опасные встречи и решения с последствиями.
+        </span>
       </button>
+
       <button class="difficulty-card danger" data-difficulty="terror">
-        <strong>УЖАСАЮЩИЙ</strong><small>НЕ ВОЗВРАЩАЙСЯ</small>
-        <span>Минимум ресурсов, агрессивный Смотритель, почти никаких подсказок.</span>
+        <strong>УЖАСАЮЩИЙ</strong>
+        <small>НЕ ВОЗВРАЩАЙСЯ</small>
+        <span>
+          Критически мало ресурсов. Одна ошибка способна оборвать прохождение.
+        </span>
       </button>
-      <button id="startGameBtn" class="button primary">НАЧАТЬ СМЕНУ</button>
-      <p class="tiny">Существующее сохранение будет заменено только после подтверждения.</p>
+
+      <button id="startGameBtn" class="button primary">
+        НАЧАТЬ СМЕНУ
+      </button>
+
+      <p class="tiny">
+        Новая игра создаёт новое прохождение. Существующий прогресс не должен
+        стираться без подтверждения.
+      </p>
     </section>
 
+    <!-- ВЫБОР ГЛАВ -->
+    <section id="chapters" class="screen hidden">
+      <button class="back" data-screen="home">← НАЗАД</button>
+
+      <div class="eyebrow">АРХИВ ПРОХОЖДЕНИЯ</div>
+      <h1>ВЫБОР ГЛАВЫ</h1>
+      <p class="muted">
+        Новые главы открываются только после завершения предыдущих.
+      </p>
+
+      <div class="chapter-progress">
+        <span>ПРОГРЕСС КАМПАНИИ</span>
+        <strong id="chapterProgressText">0 / 12</strong>
+        <i class="progress-track">
+          <em id="chapterProgressBar"></em>
+        </i>
+      </div>
+
+      <div id="chapterList" class="chapter-list">
+        <button class="chapter-card selected" data-chapter="1">
+          <span class="chapter-number">01</span>
+          <span class="chapter-info">
+            <strong>ПОСЛЕДНЯЯ СМЕНА</strong>
+            <small>СЕКТОР A // ДОСТУП РАЗРЕШЁН</small>
+          </span>
+          <span class="chapter-status">ОТКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="2" disabled>
+          <span class="chapter-number">02</span>
+          <span class="chapter-info">
+            <strong>ПОДЗЕМНЫЙ УЗЕЛ</strong>
+            <small>ПОБЕГ ИЗ ПОДВАЛА</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="3" disabled>
+          <span class="chapter-number">03</span>
+          <span class="chapter-info">
+            <strong>ЧУЖОЕ КОЛЬЦО</strong>
+            <small>СЛЕД БРАТА</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="4" disabled>
+          <span class="chapter-number">04</span>
+          <span class="chapter-info">
+            <strong>НЕПОДЧИНЕНИЕ</strong>
+            <small>АРХИВ ЗАКРЫТ</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="5" disabled>
+          <span class="chapter-number">05</span>
+          <span class="chapter-info">
+            <strong>ПАМЯТЬ ПЛОТИ</strong>
+            <small>АРХИВ ЗАКРЫТ</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="6" disabled>
+          <span class="chapter-number">06</span>
+          <span class="chapter-info">
+            <strong>ТРЕТИЙ ПРОТОКОЛ</strong>
+            <small>АРХИВ ЗАКРЫТ</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="7" disabled>
+          <span class="chapter-number">07</span>
+          <span class="chapter-info">
+            <strong>КОМНАТА ЭХА</strong>
+            <small>АРХИВ ЗАКРЫТ</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="8" disabled>
+          <span class="chapter-number">08</span>
+          <span class="chapter-info">
+            <strong>ЛИЦА СМОТРИТЕЛЕЙ</strong>
+            <small>АРХИВ ЗАКРЫТ</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="9" disabled>
+          <span class="chapter-number">09</span>
+          <span class="chapter-info">
+            <strong>ЧУЖОЕ СОЗНАНИЕ</strong>
+            <small>АРХИВ ЗАКРЫТ</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="10" disabled>
+          <span class="chapter-number">10</span>
+          <span class="chapter-info">
+            <strong>ПОСЛЕДНИЙ ЭКСПЕРИМЕНТ</strong>
+            <small>АРХИВ ЗАКРЫТ</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="11" disabled>
+          <span class="chapter-number">11</span>
+          <span class="chapter-info">
+            <strong>БРАТ</strong>
+            <small>АРХИВ ЗАКРЫТ</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+
+        <button class="chapter-card locked" data-chapter="12" disabled>
+          <span class="chapter-number">12</span>
+          <span class="chapter-info">
+            <strong>ПОСЛЕДНИЙ СИГНАЛ</strong>
+            <small>АРХИВ ЗАКРЫТ</small>
+          </span>
+          <span class="chapter-status">ЗАКРЫТА</span>
+        </button>
+      </div>
+
+      <button id="playChapterBtn" class="button primary">
+        НАЧАТЬ ВЫБРАННУЮ ГЛАВУ
+      </button>
+      <p class="tiny">
+        Недоступные главы откроются после прохождения предыдущих.
+      </p>
+    </section>
+
+    <!-- ИГРОВОЙ ЭКРАН -->
     <section id="game" class="screen hidden">
       <header class="gamehead">
-        <button id="menuBtn" class="icon-button">☰</button>
-        <div><div id="location" class="eyebrow">СЕКТОР A</div><h1 id="sceneTitle">Последняя смена</h1></div>
+        <button id="menuBtn" class="icon-button" aria-label="Меню">☰</button>
+
+        <div>
+          <div id="location" class="eyebrow">СЕКТОР A</div>
+          <h1 id="sceneTitle">Последняя смена</h1>
+          <div id="chapterLabel" class="chapter-label">ГЛАВА 01 / 12</div>
+        </div>
+
         <div id="difficultyLabel" class="difficulty-label">СРЕДНИЙ</div>
       </header>
+
       <div class="stats">
-        <div><span>ЗДОРОВЬЕ</span><b id="health">100</b><i><em id="healthBar"></em></i></div>
-        <div><span>РАССУДОК</span><b id="sanity">100</b><i><em id="sanityBar"></em></i></div>
-        <div><span>ФОНАРЬ</span><b id="battery">82</b><i><em id="batteryBar"></em></i></div>
-        <div><span>УГРОЗА</span><b id="suspicion">8</b><i><em id="suspicionBar"></em></i></div>
+        <div>
+          <span>ЗДОРОВЬЕ</span>
+          <b id="health">100</b>
+          <i><em id="healthBar"></em></i>
+        </div>
+        <div>
+          <span>РАССУДОК</span>
+          <b id="sanity">100</b>
+          <i><em id="sanityBar"></em></i>
+        </div>
+        <div>
+          <span>ФОНАРЬ</span>
+          <b id="battery">82</b>
+          <i><em id="batteryBar"></em></i>
+        </div>
+        <div>
+          <span>УГРОЗА</span>
+          <b id="suspicion">8</b>
+          <i><em id="suspicionBar"></em></i>
+        </div>
       </div>
-      <article class="story">
-        <div class="signal"><span class="pulse"></span> ВХОДЯЩИЙ СИГНАЛ</div>
+
+      <article class="story" id="storyPage">
+        <div class="signal">
+          <span class="pulse"></span>
+          ВХОДЯЩИЙ СИГНАЛ
+        </div>
         <p id="storyText"></p>
         <p id="resultText" class="result hidden"></p>
       </article>
-      <div class="section-label">ВЫБЕРИ ДЕЙСТВИЕ // 3 ВАРИАНТА</div>
+
+      <div class="section-label">
+        ВЫБЕРИ ДЕЙСТВИЕ // 3 ВАРИАНТА
+      </div>
       <div id="choices" class="choices"></div>
+
       <div class="inventory-block">
-        <div class="section-label">ИНВЕНТАРЬ <span id="inventoryCount">0/6</span></div>
+        <div class="section-label">
+          ИНВЕНТАРЬ <span id="inventoryCount">0/6</span>
+        </div>
         <div id="inventory" class="chips"></div>
-        <div class="section-label">АРХИВ УЛИК <span id="clueCount">0</span></div>
+
+        <div class="section-label">
+          АРХИВ УЛИК <span id="clueCount">0</span>
+        </div>
         <div id="clues" class="chips"></div>
       </div>
-      <div class="footerline">СОХРАНЕНИЕ АВТОМАТИЧЕСКОЕ <span id="saveStatus">●</span></div>
+
+      <div class="footerline">
+        СОХРАНЕНИЕ АВТОМАТИЧЕСКОЕ
+        <span id="saveStatus">●</span>
+      </div>
     </section>
 
+    <!-- ЭКРАН ПОРАЖЕНИЯ -->
+    <section id="death" class="screen hidden">
+      <div class="hero-mark small">СИГНАЛ ПОТЕРЯН</div>
+      <div class="warning">SUBJECT TERMINATED</div>
+      <h1 id="deathTitle">СМЕНА ПРЕРВАНА</h1>
+      <p id="deathText" class="ending-text">
+        Комплекс поглотил последнюю запись оператора.
+      </p>
+
+      <div class="lock-panel">
+        <div class="eyebrow">ПОВТОРНЫЙ ДОСТУП ЗАПРЕЩЁН</div>
+        <p id="deathCountdown">10:00</p>
+        <p class="muted">
+          Следующая попытка станет доступна после завершения обратного отсчёта.
+        </p>
+      </div>
+
+      <button id="deathRestartBtn" class="button primary" disabled>
+        ПОВТОРИТЬ ПОПЫТКУ
+      </button>
+      <button id="deathHomeBtn" class="button secondary">
+        ГЛАВНОЕ МЕНЮ
+      </button>
+    </section>
+
+    <!-- КОНЦОВКА -->
     <section id="ending" class="screen hidden">
       <div class="hero-mark small">СИГНАЛ ЗАВЕРШЁН</div>
       <div class="warning">CONNECTION LOST</div>
       <h1 id="endingTitle"></h1>
       <p id="endingText" class="ending-text"></p>
-      <button id="restartBtn" class="button primary">НОВАЯ СМЕНА</button>
-      <button id="endingArchiveBtn" class="button secondary">ПОСМОТРЕТЬ УЛИКИ</button>
+
+      <button id="restartBtn" class="button primary">
+        НОВАЯ СМЕНА
+      </button>
+      <button id="endingArchiveBtn" class="button secondary">
+        ПОСМОТРЕТЬ УЛИКИ
+      </button>
+      <button id="endingChaptersBtn" class="button secondary">
+        ВЫБОР ГЛАВ
+      </button>
     </section>
 
+    <!-- АРХИВ -->
     <section id="archive" class="screen hidden">
       <button class="back" data-screen="home">← НАЗАД</button>
       <h1>АРХИВ УЛИК</h1>
-      <p class="muted">Найденные доказательства сохраняются между сессиями.</p>
+      <p class="muted">
+        Записи, фотографии и найденные доказательства.
+      </p>
       <div id="archiveList" class="archive-list"></div>
     </section>
 
+    <!-- ПАУЗА -->
     <section id="pause" class="screen hidden">
       <h1>СМЕНА ПРИОСТАНОВЛЕНА</h1>
       <p class="muted">Прогресс сохраняется автоматически.</p>
-      <button id="resumeBtn" class="button primary">ВЕРНУТЬСЯ</button>
-      <button id="pauseArchiveBtn" class="button secondary">АРХИВ УЛИК</button>
-      <button id="mainMenuBtn" class="button secondary">ГЛАВНОЕ МЕНЮ</button>
+
+      <button id="resumeBtn" class="button primary">
+        ВЕРНУТЬСЯ
+      </button>
+      <button id="pauseArchiveBtn" class="button secondary">
+        АРХИВ УЛИК
+      </button>
+      <button id="pauseChaptersBtn" class="button secondary">
+        ВЫБОР ГЛАВ
+      </button>
+      <button id="mainMenuBtn" class="button secondary">
+        ГЛАВНОЕ МЕНЮ
+      </button>
     </section>
-    <div id="toast" class="toast hidden"></div>
+
+    <!-- ПЕРЕХОД МЕЖДУ СЦЕНАМИ -->
+    <div id="pageTurn" class="page-turn hidden" aria-hidden="true">
+      <div class="page-turn-sheet"></div>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   </main>
+
   <script src="/app.js"></script>
 </body>
 </html>
