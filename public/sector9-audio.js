@@ -150,34 +150,50 @@
       source.stop(ctx.currentTime + duration);
     },
 
-    startAmbience() {
-      if (!this.initialized || !this.enabled || this.ambience) return;
+  
+startAmbience() {
+  if (!this.initialized || !this.enabled || this.ambience) return;
 
-      const ctx = this.ctx;
-      const drone = ctx.createOscillator();
-      const droneGain = ctx.createGain();
+  const ctx = this.ctx;
 
-      drone.type = "sawtooth";
-      drone.frequency.value = 42;
-      droneGain.gain.value = 0.045;
+  // Мягкий шум вентиляции
+  const length = ctx.sampleRate * 4;
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
 
-      drone.connect(droneGain);
-      droneGain.connect(this.master);
-      drone.start();
+  for (let i = 0; i < length; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.35;
+  }
 
-      const hum = ctx.createOscillator();
-      const humGain = ctx.createGain();
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
 
-      hum.type = "sine";
-      hum.frequency.value = 58;
-      humGain.gain.value = 0.025;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 280;
+  filter.Q.value = 0.5;
 
-      hum.connect(humGain);
-      humGain.connect(this.master);
-      hum.start();
+  const gain = ctx.createGain();
+  gain.gain.value = 0.018;
 
-      this.ambience = { drone, hum, droneGain, humGain };
-    },
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(this.master);
+
+  source.start();
+
+  this.ambience = { source, gain };
+},
+
+stopAmbience() {
+  if (!this.ambience) return;
+
+  const old = this.ambience;
+  this.ambience = null;
+
+  old.source.stop();
+},
 
     stopAmbience() {
       if (!this.ambience || !this.ctx) return;
@@ -211,10 +227,17 @@
       setTimeout(() => this.noise(0.5, 0.12, 700), 250);
     },
 
-    lock() {
-      this.tone(900, 0.08, "square", 0.2, 450);
-      setTimeout(() => this.tone(180, 0.3, "metal", 0.15, 70), 100);
-      this.noise(0.15, 0.15, 1800);
+   
+lock() {
+  this.tone(900, 0.08, "square", 0.2, 450);
+
+  setTimeout(() => {
+    this.tone(180, 0.3, "triangle", 0.15, 70);
+  }, 100);
+
+  this.noise(0.15, 0.15, 1800);
+},
+
     },
 
     radio() {
