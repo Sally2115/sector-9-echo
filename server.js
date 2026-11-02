@@ -204,7 +204,7 @@ function makeScene(id, chapter, location, title, text, choices) {
   return { id, chapter, location, title, text, choices };
 }
 
-const scenes = {
+const oldScenes = {
   intro: makeScene(
     "intro", 1, "ОПЕРАТОРСКАЯ // 03:17",
     "Последняя смена",
