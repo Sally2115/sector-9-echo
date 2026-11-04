@@ -1,4 +1,3 @@
-
 (() => {
   "use strict";
 
@@ -13,31 +12,25 @@
 
     init() {
       if (this.initialized) {
-        if (this.ctx && this.ctx.state === "suspended") {
-          this.ctx.resume();
+        if (this.ctx?.state === "suspended") {
+          this.ctx.resume().catch(() => {});
         }
         return;
       }
 
-      const AudioContext =
-        window.AudioContext || window.webkitAudioContext;
-
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) {
         console.warn("Web Audio не поддерживается браузером.");
         return;
       }
 
       this.ctx = new AudioContext();
-
       this.master = this.ctx.createGain();
-      this.master.gain.value = this.volume;
+      this.master.gain.value = this.enabled ? this.volume : 0;
       this.master.connect(this.ctx.destination);
-
       this.initialized = true;
 
-      if (this.enabled) {
-        this.startAmbience();
-      }
+      if (this.enabled) this.startAmbience();
     },
 
     setVolume(value) {
@@ -45,7 +38,7 @@
 
       if (this.master && this.ctx) {
         this.master.gain.setTargetAtTime(
-          this.volume,
+          this.enabled ? this.volume : 0,
           this.ctx.currentTime,
           0.05
         );
@@ -53,11 +46,8 @@
     },
 
     toggle() {
+      if (!this.initialized) this.init();
       this.enabled = !this.enabled;
-
-      if (!this.initialized) {
-        this.init();
-      }
 
       if (this.master && this.ctx) {
         this.master.gain.setTargetAtTime(
@@ -67,11 +57,8 @@
         );
       }
 
-      if (this.enabled) {
-        this.startAmbience();
-      } else {
-        this.stopAmbience();
-      }
+      if (this.enabled) this.startAmbience();
+      else this.stopAmbience();
 
       const button = document.getElementById("s9-audio-toggle");
       if (button) {
@@ -85,42 +72,36 @@
       const ctx = this.ctx;
       const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
+      const now = ctx.currentTime;
 
       oscillator.type = type;
-      oscillator.frequency.setValueAtTime(
-        frequency,
-        ctx.currentTime
-      );
+      oscillator.frequency.setValueAtTime(frequency, now);
 
       if (endFreq) {
         oscillator.frequency.exponentialRampToValueAtTime(
           Math.max(1, endFreq),
-          ctx.currentTime + duration
+          now + duration
         );
       }
 
-      gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      gain.gain.setValueAtTime(0.001, now);
       gain.gain.exponentialRampToValueAtTime(
         Math.max(0.001, volume),
-        ctx.currentTime + 0.03
+        now + Math.min(0.03, duration / 3)
       );
-      gain.gain.exponentialRampToValueAtTime(
-        0.001,
-        ctx.currentTime + duration
-      );
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       oscillator.connect(gain);
       gain.connect(this.master);
-
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + duration + 0.05);
+      oscillator.start(now);
+      oscillator.stop(now + duration + 0.05);
     },
 
     noise(duration, volume = 0.15, filterFrequency = 1000) {
       if (!this.initialized || !this.enabled) return;
 
       const ctx = this.ctx;
-      const length = Math.floor(ctx.sampleRate * duration);
+      const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
       const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
       const data = buffer.getChannelData(0);
 
@@ -131,78 +112,63 @@
       const source = ctx.createBufferSource();
       const filter = ctx.createBiquadFilter();
       const gain = ctx.createGain();
+      const now = ctx.currentTime;
 
       source.buffer = buffer;
       filter.type = "lowpass";
       filter.frequency.value = filterFrequency;
 
-      gain.gain.setValueAtTime(volume, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(
-        0.001,
-        ctx.currentTime + duration
-      );
+      gain.gain.setValueAtTime(Math.max(0.001, volume), now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       source.connect(filter);
       filter.connect(gain);
       gain.connect(this.master);
 
-      source.start();
-      source.stop(ctx.currentTime + duration);
+      source.start(now);
+      source.stop(now + duration);
     },
 
-  
-startAmbience() {
-  if (!this.initialized || !this.enabled || this.ambience) return;
+    startAmbience() {
+      if (!this.initialized || !this.enabled || this.ambience) return;
 
-  const ctx = this.ctx;
+      const ctx = this.ctx;
+      const length = ctx.sampleRate * 4;
+      const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
 
-  // Мягкий шум вентиляции
-  const length = ctx.sampleRate * 4;
-  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * 0.35;
+      }
 
-  for (let i = 0; i < length; i++) {
-    data[i] = (Math.random() * 2 - 1) * 0.35;
-  }
+      const source = ctx.createBufferSource();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
 
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
+      source.buffer = buffer;
+      source.loop = true;
+      filter.type = "lowpass";
+      filter.frequency.value = 220;
+      filter.Q.value = 0.45;
+      gain.gain.value = 0.008;
 
-  const filter = ctx.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = 280;
-  filter.Q.value = 0.5;
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.master);
+      source.start();
 
-  const gain = ctx.createGain();
-  gain.gain.value = 0.018;
-
-  source.connect(filter);
-  filter.connect(gain);
-  gain.connect(this.master);
-
-  source.start();
-
-  this.ambience = { source, gain };
-},
-
-stopAmbience() {
-  if (!this.ambience) return;
-
-  const old = this.ambience;
-  this.ambience = null;
-
-  old.source.stop();
-},
+      this.ambience = { source, gain };
+    },
 
     stopAmbience() {
-      if (!this.ambience || !this.ctx) return;
+      if (!this.ambience) return;
 
       const old = this.ambience;
       this.ambience = null;
 
-      old.drone.stop(this.ctx.currentTime + 0.1);
-      old.hum.stop(this.ctx.currentTime + 0.1);
+      try {
+        old.source.stop();
+      } catch {}
     },
 
     step() {
@@ -212,56 +178,51 @@ stopAmbience() {
       if (now - this.lastStep < 450) return;
       this.lastStep = now;
 
-      this.noise(0.12, 0.18, 350);
-      this.tone(75, 0.13, "triangle", 0.12, 45);
+      this.noise(0.09, 0.08, 500);
+      this.tone(90, 0.09, "triangle", 0.06, 55);
     },
 
     metalStep() {
-      this.noise(0.16, 0.25, 1800);
-      this.tone(180, 0.2, "triangle", 0.15, 70);
+      this.noise(0.12, 0.12, 1400);
+      this.tone(210, 0.14, "triangle", 0.09, 90);
     },
 
     door() {
-      this.noise(1.4, 0.3, 450);
-      this.tone(90, 1.2, "sawtooth", 0.13, 35);
-      setTimeout(() => this.noise(0.5, 0.12, 700), 250);
+      this.noise(0.65, 0.16, 550);
+      this.tone(100, 0.7, "sawtooth", 0.08, 38);
+      setTimeout(() => this.noise(0.25, 0.07, 800), 180);
     },
 
-   
-lock() {
-  this.tone(900, 0.08, "square", 0.2, 450);
-
-  setTimeout(() => {
-    this.tone(180, 0.3, "triangle", 0.15, 70);
-  }, 100);
-
-  this.noise(0.15, 0.15, 1800);
-},
-
+    lock() {
+      this.tone(850, 0.07, "square", 0.1, 420);
+      setTimeout(() => {
+        this.tone(160, 0.24, "triangle", 0.09, 65);
+      }, 90);
+      this.noise(0.1, 0.07, 1600);
     },
 
     radio() {
-      this.noise(0.7, 0.25, 3500);
-      this.tone(1200, 0.3, "sine", 0.1, 300);
+      this.noise(0.45, 0.13, 2800);
+      this.tone(1100, 0.2, "sine", 0.06, 350);
     },
 
     switchSound() {
-      this.tone(650, 0.06, "square", 0.12, 300);
-      this.tone(110, 0.15, "sine", 0.1, 65);
+      this.tone(620, 0.05, "square", 0.07, 300);
+      this.tone(120, 0.12, "sine", 0.06, 70);
     },
 
     heartbeat() {
-      this.tone(65, 0.16, "sine", 0.3, 40);
-      setTimeout(() => this.tone(55, 0.18, "sine", 0.25, 35), 220);
+      this.tone(65, 0.16, "sine", 0.15, 40);
+      setTimeout(() => this.tone(55, 0.18, "sine", 0.12, 35), 220);
     },
 
     scare() {
-      this.noise(1.1, 0.5, 5000);
-      this.tone(180, 0.9, "sawtooth", 0.35, 25);
+      this.noise(0.8, 0.22, 4200);
+      this.tone(170, 0.7, "sawtooth", 0.16, 28);
     },
 
     click() {
-      this.tone(500, 0.04, "square", 0.08, 300);
+      this.tone(480, 0.04, "square", 0.05, 280);
     },
 
     playForChoice(text) {
@@ -269,11 +230,11 @@ lock() {
 
       const value = String(text || "").toLowerCase();
 
-      if (/двер|открыть|закрыть|войти|выйти/.test(value)) {
-        this.door();
-      } else if (/радио|связ|частот|сигнал/.test(value)) {
+      if (/радио|связ|частот|сигнал/.test(value)) {
         this.radio();
-      } else if (/фонар|свет|выключить|включить/.test(value)) {
+      } else if (/двер|открыть|закрыть|войти|выйти/.test(value)) {
+        this.door();
+      } else if (/фонар|свет|выключить|включить|панел/.test(value)) {
         this.switchSound();
       } else if (/бежать|убежать|спрятаться|смотрител/.test(value)) {
         this.step();
@@ -331,41 +292,31 @@ lock() {
 
       const panel = document.createElement("div");
       panel.id = "s9-audio-panel";
-
       panel.innerHTML = `
         <button id="s9-audio-toggle" type="button">ЗВУК: ВКЛ</button>
         <span id="s9-audio-label">ГРОМКОСТЬ</span>
-        <input id="s9-audio-volume"
-          type="range" min="0" max="100" value="35">
+        <input id="s9-audio-volume" type="range" min="0" max="100" value="35">
       `;
 
       document.body.appendChild(panel);
 
-      document.getElementById("s9-audio-toggle")
-        .addEventListener("click", () => {
-          this.init();
-          this.toggle();
-        });
+      document.getElementById("s9-audio-toggle").addEventListener("click", () => {
+        this.init();
+        this.toggle();
+      });
 
-      document.getElementById("s9-audio-volume")
-        .addEventListener("input", event => {
-          this.init();
-          this.setVolume(Number(event.target.value) / 100);
-        });
+      document.getElementById("s9-audio-volume").addEventListener("input", event => {
+        this.init();
+        this.setVolume(Number(event.target.value) / 100);
+      });
     },
 
     bindEvents() {
-      document.addEventListener("pointerdown", () => {
-        this.init();
-      }, { once: true });
+      document.addEventListener("pointerdown", () => this.init(), { once: true });
 
       document.addEventListener("click", event => {
-        const choice = event.target.closest(
-          ".choice, [data-choice], button"
-        );
-
-        if (!choice) return;
-        if (choice.id === "s9-audio-toggle") return;
+        const choice = event.target.closest(".choice, [data-choice], button");
+        if (!choice || choice.id === "s9-audio-toggle") return;
 
         this.init();
         this.playForChoice(choice.textContent);
@@ -375,9 +326,7 @@ lock() {
 
       if (title) {
         const observer = new MutationObserver(() => {
-          if (!this.initialized || !this.enabled) return;
-
-          this.step();
+          if (this.initialized && this.enabled) this.step();
         });
 
         observer.observe(title, {
