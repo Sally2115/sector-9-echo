@@ -1,54 +1,26 @@
-# SECTOR-9: ЭХО — Telegram Mini App
+SECTOR-9: ЭХО — ADMIN UPDATE
 
-Стартовый проект хоррор-игры на Node.js + Express + HTML/CSS/JS. Поддерживает Telegram Mini App, три уровня сложности, сцены с тремя вариантами выбора, инвентарь, улики, характеристики и сохранения в PostgreSQL.
+Replace these files in the GitHub repository:
+- server.js                 -> repository root
+- public/index.html         -> public/index.html
+- public/app.js             -> public/app.js
+- public/style.css          -> public/style.css
 
-## Важно
+Then in Render -> your service -> Environment add:
+ADMIN_TELEGRAM_ID = your numeric Telegram user ID
 
-- Для полноценного Telegram запуска нужны `BOT_TOKEN`, публичный HTTPS `APP_URL` и PostgreSQL.
-- Без `DATABASE_URL` сохранения хранятся только в памяти процесса и пропадут после перезапуска. Это только временный режим для тестирования.
-- Открытие сайта напрямую запускает демонстрационный режим. Авторизация и серверные сохранения работают, когда игра открыта через Telegram Mini App.
-- Не публикуйте `.env` и не отправляйте никому токен бота. Если токен когда-либо раскрывался, перевыпустите его через BotFather.
+Get the numeric ID from a trusted Telegram ID lookup bot (for example, @userinfobot).
+Do not put BOT_TOKEN here; keep the existing BOT_TOKEN and DATABASE_URL unchanged.
+Commit the files and wait for Render deploy. Existing game_saves are preserved; new admin tables are created automatically.
 
-## Локальный запуск
+Admin features in this update:
+- player list with Telegram ID/name/username and online status (90-second heartbeat)
+- player profile and save inspection
+- ban/unban
+- edit stats, inventory and clues
+- unlock/lock chapters and set current chapter
+- reset save
+- maintenance mode with a player-facing message
+- admin audit log
 
-1. Установите Node.js 20 или новее.
-2. Распакуйте архив и откройте папку проекта в терминале.
-3. Выполните `npm install`.
-4. Скопируйте `.env.example` в `.env`.
-5. Впишите `BOT_TOKEN`, а `APP_URL` пока можно оставить пустым для локального просмотра.
-6. Выполните `npm start`.
-7. Откройте `http://localhost:3000`.
-
-Для локального просмотра без Telegram можно нажать «Новая игра»: будет доступна демонстрационная сцена, но без настоящего серверного сохранения.
-
-## Развёртывание на Render
-
-1. Создайте новый репозиторий GitHub и загрузите содержимое этой папки.
-2. На Render выберите **New + → PostgreSQL**. Создайте базу данных. Скопируйте её **Internal Database URL**.
-3. На Render выберите **New + → Web Service** и подключите GitHub-репозиторий.
-4. Укажите:
-   - **Runtime:** Node
-   - **Build Command:** `npm install`
-   - **Start Command:** `npm start`
-5. В Environment добавьте:
-   - `BOT_TOKEN` — токен Telegram-бота от `@BotFather`
-   - `APP_URL` — HTTPS URL созданного Render Web Service, например `https://sector9-echo.onrender.com`
-   - `DATABASE_URL` — Internal Database URL PostgreSQL
-6. Дождитесь успешного деплоя. Проверьте `https://YOUR-SERVICE.onrender.com/health`; должен вернуться JSON с `ok: true`.
-7. Откройте `@BotFather` в Telegram, выберите своего бота и установите Menu Button / Web App URL на тот же `APP_URL`, если хотите запускать игру из меню бота.
-8. Отправьте боту `/start` и нажмите кнопку открытия Mini App.
-
-## Важные замечания
-
-- Запускайте только один экземпляр сервиса с включённым long polling бота, иначе Telegram может вернуть `409 Conflict`.
-- Не запускайте одновременно тот же токен локально и на Render.
-- В `APP_URL` должен быть HTTPS URL Render, без завершающего пути `/api`.
-- Перевыпустите токен через BotFather, если он когда-либо был опубликован в чате, репозитории или скриншоте.
-- Это первый рабочий прототип. Ветка основного сюжета и часть глав представлены заготовками; затем нужно расширить контент до всех 12 глав, доработать головоломки и переходы, а также протестировать игру в Telegram на телефоне.
-
-## Структура
-
-- `server.js` — Express API, проверка Telegram initData, бот и сохранения.
-- `public/index.html` — экраны Mini App.
-- `public/style.css` — тёмный интерфейс.
-- `public/app.js` — интерфейс и игровой клиент.
+Important: use PostgreSQL DATABASE_URL for persistent player metadata, bans, maintenance state and audit logs. Without PostgreSQL, fallback memory storage resets when the server restarts.
