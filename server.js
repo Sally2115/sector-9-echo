@@ -25,6 +25,10 @@ const pool = process.env.DATABASE_URL
   : null;
 
 const memorySaves = new Map();
+const memoryPlayers = new Map();
+const memorySettings = { maintenance: false, maintenance_message: "Технические работы. Попробуйте позже." };
+const memoryAdminLogs = [];
+const ADMIN_TELEGRAM_ID = String(process.env.ADMIN_TELEGRAM_ID || "").trim();
 
 const CHAPTERS = [
   { id: 1, title: "Последняя смена" },
@@ -142,17 +146,70 @@ function getUserId(req) {
   return validateTelegramInitData(req.get("x-telegram-init-data") || "");
 }
 
-function requireTelegram(req, res, next) {
+async function requireTelegram(req, res, next) {
+  const initData = req.get("x-telegram-init-data") || "";
   const userId = getUserId(req);
 
   if (!userId) {
-    return res.status(401).json({
-      error: "Открой игру через Telegram-бота. Проверка Telegram не пройдена."
-    });
+    return res.status(401).json({ error: "Открой игру через Telegram-бота. Проверка Telegram не пройдена." });
   }
 
   req.telegramUserId = userId;
-  next();
+  let tgUser = {};
+  try { tgUser = JSON.parse(new URLSearchParams(initData).get("user") || "{}"); } catch {}
+  const username = tgUser.username ? String(tgUser.username).slice(0, 64) : null;
+  const displayName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ").slice(0, 120) || null;
+
+  try {
+    let player = { telegram_id: userId, username, display_name: displayName, last_seen: new Date().toISOString(), banned: false, ban_reason: null };
+    if (pool) {
+      await pool.query(`INSERT INTO sector9_players (telegram_id, username, display_name, last_seen)
+        VALUES ($1,$2,$3,NOW()) ON CONFLICT (telegram_id) DO UPDATE SET
+        username=COALESCE(EXCLUDED.username,sector9_players.username),
+        display_name=COALESCE(EXCLUDED.display_name,sector9_players.display_name), last_seen=NOW()`,
+        [userId, username, displayName]);
+      const result = await pool.query("SELECT banned, ban_reason FROM sector9_players WHERE telegram_id=$1", [userId]);
+      player.banned = !!result.rows[0]?.banned;
+      player.ban_reason = result.rows[0]?.ban_reason || null;
+    } else {
+      const previous = memoryPlayers.get(userId) || {};
+      player = { ...player, ...previous, username: username || previous.username, display_name: displayName || previous.display_name, last_seen: new Date().toISOString() };
+      memoryPlayers.set(userId, player);
+    }
+    if (player.banned && userId !== ADMIN_TELEGRAM_ID && !req.path.startsWith("/api/admin")) {
+      return res.status(403).json({ error: player.ban_reason ? `Доступ заблокирован: ${player.ban_reason}` : "Доступ к игре заблокирован администратором." });
+    }
+    if (!req.path.startsWith("/api/admin") && userId !== ADMIN_TELEGRAM_ID) {
+      let maintenance = memorySettings;
+      if (pool) {
+        const settings = await pool.query("SELECT maintenance, maintenance_message FROM sector9_settings WHERE id=1");
+        if (settings.rows[0]) maintenance = settings.rows[0];
+      }
+      if (maintenance.maintenance) return res.status(503).json({ error: maintenance.maintenance_message || "Идут технические работы. Попробуйте позже.", maintenance: true });
+    }
+    next();
+  } catch (err) {
+    console.error("Player presence check failed:", err);
+    res.status(500).json({ error: "Не удалось проверить доступ к игре." });
+  }
+}
+
+function requireAdmin(req, res, next) {
+  requireTelegram(req, res, () => {
+    if (!ADMIN_TELEGRAM_ID || req.telegramUserId !== ADMIN_TELEGRAM_ID) {
+      return res.status(403).json({ error: "Доступ запрещён. Вы не администратор." });
+    }
+    next();
+  });
+}
+
+async function writeAdminLog(adminId, targetId, action, details = {}) {
+  if (pool) await pool.query(`INSERT INTO sector9_admin_log (admin_id,target_id,action,details) VALUES ($1,$2,$3,$4)`, [adminId, targetId || null, action, JSON.stringify(details)]);
+  else memoryAdminLogs.unshift({admin_id:adminId,target_id:targetId||null,action,details,created_at:new Date().toISOString()});
+}
+
+async function getAdminSave(userId) {
+  return loadSave(String(userId));
 }
 
 async function initDb() {
@@ -168,8 +225,22 @@ async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-
-  console.log("PostgreSQL save table ready.");
+  await pool.query(`CREATE TABLE IF NOT EXISTS sector9_players (
+    telegram_id TEXT PRIMARY KEY, username TEXT, display_name TEXT,
+    last_seen TIMESTAMPTZ, banned BOOLEAN NOT NULL DEFAULT FALSE, ban_reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS sector9_settings (
+    id SMALLINT PRIMARY KEY CHECK (id=1), maintenance BOOLEAN NOT NULL DEFAULT FALSE,
+    maintenance_message TEXT NOT NULL DEFAULT 'Технические работы. Попробуйте позже.'
+  )`);
+  await pool.query(`INSERT INTO sector9_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS sector9_admin_log (
+    id BIGSERIAL PRIMARY KEY, admin_id TEXT NOT NULL, target_id TEXT,
+    action TEXT NOT NULL, details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  console.log("PostgreSQL game and admin tables ready.");
 }
 
 async function loadSave(userId) {
@@ -1344,6 +1415,99 @@ app.post("/api/choose", requireTelegram, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Не удалось сохранить действие." });
   }
+});
+
+// ADMIN API — every route is protected by verified Telegram identity + ADMIN_TELEGRAM_ID.
+app.get("/api/presence", requireTelegram, (_req, res) => res.json({ ok: true }));
+
+app.get("/api/admin/overview", requireAdmin, async (req, res) => {
+  try {
+    let players = [];
+    let maintenance = memorySettings;
+    if (pool) {
+      const result = await pool.query(`SELECT COALESCE(p.telegram_id,s.telegram_id) AS telegram_id, p.username, p.display_name, p.last_seen, p.banned, p.ban_reason,
+        s.save_data, s.updated_at FROM game_saves s FULL OUTER JOIN sector9_players p ON s.telegram_id=p.telegram_id
+        ORDER BY p.last_seen DESC NULLS LAST, s.updated_at DESC NULLS LAST LIMIT 500`);
+      players = result.rows.map(r => ({ telegramId:r.telegram_id, username:r.username, displayName:r.display_name,
+        lastSeen:r.last_seen, online:r.last_seen && Date.now()-new Date(r.last_seen).getTime()<90000,
+        banned:!!r.banned, banReason:r.ban_reason, chapter:r.save_data?.chapter || 0,
+        difficulty:r.save_data?.difficulty || "—", historyCount:r.save_data?.history?.length || 0,
+        updatedAt:r.updated_at || r.save_data?.updatedAt || null }));
+      const setting = await pool.query("SELECT maintenance, maintenance_message FROM sector9_settings WHERE id=1");
+      if (setting.rows[0]) maintenance = setting.rows[0];
+    } else {
+      players = [...memoryPlayers.values()].map(p => { const save=memorySaves.get(p.telegram_id)||{}; return {
+        telegramId:p.telegram_id, username:p.username, displayName:p.display_name, lastSeen:p.last_seen,
+        online:p.last_seen && Date.now()-new Date(p.last_seen).getTime()<90000, banned:!!p.banned,
+        banReason:p.ban_reason, chapter:save.chapter||0, difficulty:save.difficulty||"—",
+        historyCount:save.history?.length||0, updatedAt:save.updatedAt||null
+      }; });
+    }
+    res.json({ totalPlayers:players.length, onlinePlayers:players.filter(p=>p.online).length,
+      database:!!pool, maintenance, players });
+  } catch (err) { console.error(err); res.status(500).json({error:"Не удалось загрузить список игроков."}); }
+});
+
+app.get("/api/admin/player/:id", requireAdmin, async (req,res) => {
+  try {
+    const id=String(req.params.id);
+    const save=await getAdminSave(id);
+    let meta=memoryPlayers.get(id)||{};
+    if(pool){ const q=await pool.query("SELECT * FROM sector9_players WHERE telegram_id=$1",[id]); meta=q.rows[0]||meta; }
+    if(!save && !meta.telegram_id) return res.status(404).json({error:"Игрок не найден."});
+    res.json({player:{telegramId:id,username:meta.username||null,displayName:meta.display_name||null,
+      lastSeen:meta.last_seen||null,online:meta.last_seen&&Date.now()-new Date(meta.last_seen).getTime()<90000,
+      banned:!!meta.banned,banReason:meta.ban_reason||null},save:save||null});
+  } catch(err){console.error(err);res.status(500).json({error:"Не удалось открыть профиль игрока."});}
+});
+
+app.post("/api/admin/player/:id/ban", requireAdmin, async(req,res)=>{
+  try { const id=String(req.params.id); if(id===ADMIN_TELEGRAM_ID)return res.status(400).json({error:"Нельзя заблокировать самого администратора."});
+    const reason=String(req.body?.reason||"Нарушение правил").slice(0,300);
+    if(pool) await pool.query(`INSERT INTO sector9_players (telegram_id,banned,ban_reason) VALUES ($1,TRUE,$2)
+      ON CONFLICT (telegram_id) DO UPDATE SET banned=TRUE,ban_reason=$2`,[id,reason]);
+    else { const p=memoryPlayers.get(id)||{telegram_id:id}; memoryPlayers.set(id,{...p,banned:true,ban_reason:reason}); }
+    await writeAdminLog(req.telegramUserId,id,"ban",{reason}); res.json({ok:true});
+  }catch(err){console.error(err);res.status(500).json({error:"Не удалось заблокировать игрока."});}
+});
+app.post("/api/admin/player/:id/unban", requireAdmin, async(req,res)=>{
+  try { const id=String(req.params.id); if(pool) await pool.query("UPDATE sector9_players SET banned=FALSE,ban_reason=NULL WHERE telegram_id=$1",[id]);
+    else {const p=memoryPlayers.get(id)||{telegram_id:id};memoryPlayers.set(id,{...p,banned:false,ban_reason:null});}
+    await writeAdminLog(req.telegramUserId,id,"unban");res.json({ok:true});
+  }catch(err){console.error(err);res.status(500).json({error:"Не удалось снять блокировку."});}
+});
+app.post("/api/admin/player/:id/resources", requireAdmin, async(req,res)=>{
+  try { const id=String(req.params.id); const save=await getAdminSave(id); if(!save)return res.status(404).json({error:"У игрока ещё нет сохранения."});
+    const stats=req.body?.stats||{}; for(const key of ["health","sanity","battery","suspicion","distortion","evaTrust"]){if(stats[key]!==undefined)save.stats[key]=clamp(stats[key]);}
+    if(Array.isArray(req.body?.inventory))save.inventory=req.body.inventory.map(x=>String(x).slice(0,100)).slice(0,100);
+    if(Array.isArray(req.body?.clues))save.clues=req.body.clues.map(x=>String(x).slice(0,300)).slice(0,200);
+    await storeSave(id,save); await writeAdminLog(req.telegramUserId,id,"resources_update",{stats,inventory:save.inventory,clues:save.clues});res.json({ok:true,save});
+  }catch(err){console.error(err);res.status(500).json({error:"Не удалось изменить ресурсы."});}
+});
+app.post("/api/admin/player/:id/chapters", requireAdmin, async(req,res)=>{
+  try {const id=String(req.params.id);const save=await getAdminSave(id);if(!save)return res.status(404).json({error:"Сохранение не найдено."});
+    const valid=a=>Array.isArray(a)?[...new Set(a.map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=12))]:null;
+    const unlocked=valid(req.body?.unlocked);const completed=valid(req.body?.completed);
+    if(unlocked)save.unlockedChapters=unlocked.includes(1)?unlocked:[1,...unlocked];
+    if(completed)save.completedChapters=completed;
+    if(req.body?.currentChapter!==undefined){const c=Number(req.body.currentChapter);if(!Number.isInteger(c)||c<1||c>12)return res.status(400).json({error:"Неверный номер главы."});save.chapter=c;save.scene=c===1?"intro":c<=3?({2:"basement",3:"alone"})[c]:`chapter${c}`;save.unlockedChapters=[...new Set([...save.unlockedChapters,c])];}
+    await storeSave(id,save);await writeAdminLog(req.telegramUserId,id,"chapters_update",{unlocked:save.unlockedChapters,completed:save.completedChapters,currentChapter:save.chapter});res.json({ok:true,save});
+  }catch(err){console.error(err);res.status(500).json({error:"Не удалось изменить главы."});}
+});
+app.post("/api/admin/player/:id/reset", requireAdmin, async(req,res)=>{
+  try {const id=String(req.params.id);const save=makeInitialSave("medium");await storeSave(id,save);await writeAdminLog(req.telegramUserId,id,"save_reset");res.json({ok:true,save});}
+  catch(err){console.error(err);res.status(500).json({error:"Не удалось сбросить сохранение."});}
+});
+app.post("/api/admin/maintenance", requireAdmin, async(req,res)=>{
+  try {const enabled=!!req.body?.enabled;const message=String(req.body?.message||"Технические работы. Попробуйте позже.").slice(0,300);
+    memorySettings.maintenance=enabled;memorySettings.maintenance_message=message;
+    if(pool)await pool.query("UPDATE sector9_settings SET maintenance=$1,maintenance_message=$2 WHERE id=1",[enabled,message]);
+    await writeAdminLog(req.telegramUserId,null,"maintenance",{enabled,message});res.json({ok:true,maintenance:{maintenance:enabled,maintenance_message:message}});
+  }catch(err){console.error(err);res.status(500).json({error:"Не удалось изменить режим обслуживания."});}
+});
+app.get("/api/admin/logs", requireAdmin, async(req,res)=>{
+  try {let logs=memoryAdminLogs.slice(0,200);if(pool){const q=await pool.query("SELECT admin_id,target_id,action,details,created_at FROM sector9_admin_log ORDER BY id DESC LIMIT 200");logs=q.rows;}
+    res.json({logs});}catch(err){console.error(err);res.status(500).json({error:"Не удалось загрузить журнал."});}
 });
 
 if (BOT_TOKEN) {
