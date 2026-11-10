@@ -38,6 +38,9 @@
       <button id="archiveBtn" class="button secondary">
         АРХИВ УЛИК
       </button>
+      <button id="adminOpenBtn" class="button secondary hidden">
+        ПАНЕЛЬ АДМИНИСТРАТОРА
+      </button>
 
       <div class="build">BUILD 1.0 // LAST SIGNAL 03:17</div>
     </section>
@@ -272,6 +275,11 @@
       </div>
       <div id="choices" class="choices"></div>
 
+      <section class="s9-journal" id="actionJournal">
+        <div class="section-label">ЖУРНАЛ ДЕЙСТВИЙ <span id="journalCount">0</span></div>
+        <div id="journalList" class="archive-list"></div>
+      </section>
+
       <div class="inventory-block">
         <div class="section-label">
           ИНВЕНТАРЬ <span id="inventoryCount">0/6</span>
@@ -360,6 +368,51 @@
       <button id="mainMenuBtn" class="button secondary">
         ГЛАВНОЕ МЕНЮ
       </button>
+    </section>
+
+    <!-- АДМИН-ПАНЕЛЬ -->
+    <section id="admin" class="screen hidden">
+      <button class="back" data-screen="home">← НАЗАД</button>
+      <div class="eyebrow">RESTRICTED ACCESS // ADMIN</div>
+      <h1>ПАНЕЛЬ АДМИНИСТРАТОРА</h1>
+      <div id="adminSummary" class="muted">Загрузка статистики…</div>
+      <div class="admin-maintenance">
+        <strong>РЕЖИМ ОБСЛУЖИВАНИЯ</strong>
+        <p id="maintenanceStatus" class="muted">Проверка статуса…</p>
+        <button id="maintenanceToggleBtn" class="button secondary">ИЗМЕНИТЬ РЕЖИМ</button>
+      </div>
+      <h2 class="admin-heading">ИГРОКИ</h2>
+      <input id="adminSearch" class="admin-input" type="search" placeholder="Поиск: Telegram ID, имя или username">
+      <div id="adminPlayers" class="archive-list"></div>
+      <section id="adminPlayerDetails" class="admin-details hidden">
+        <h2 class="admin-heading">ПРОФИЛЬ ИГРОКА</h2>
+        <div id="adminPlayerSummary" class="muted"></div>
+        <div class="admin-actions">
+          <button id="adminBanBtn" class="button secondary">ЗАБЛОКИРОВАТЬ</button>
+          <button id="adminResetBtn" class="button secondary">СБРОСИТЬ СОХРАНЕНИЕ</button>
+        </div>
+        <h3>ХАРАКТЕРИСТИКИ</h3>
+        <div class="admin-grid">
+          <label>Здоровье<input id="admHealth" class="admin-input" type="number" min="0" max="100"></label>
+          <label>Рассудок<input id="admSanity" class="admin-input" type="number" min="0" max="100"></label>
+          <label>Батарея<input id="admBattery" class="admin-input" type="number" min="0" max="100"></label>
+          <label>Угроза<input id="admSuspicion" class="admin-input" type="number" min="0" max="100"></label>
+          <label>Искажение<input id="admDistortion" class="admin-input" type="number" min="0" max="100"></label>
+          <label>Доверие Евы<input id="admEvaTrust" class="admin-input" type="number" min="0" max="100"></label>
+        </div>
+        <label class="admin-field">Предметы инвентаря (каждый с новой строки)<textarea id="admInventory" class="admin-input" rows="4"></textarea></label>
+        <label class="admin-field">Улики (каждая с новой строки)<textarea id="admClues" class="admin-input" rows="4"></textarea></label>
+        <button id="adminResourcesSaveBtn" class="button primary">СОХРАНИТЬ РЕСУРСЫ</button>
+        <h3>ПРОГРЕСС ГЛАВ</h3>
+        <label class="admin-field">Открытые главы (номера через запятую)<input id="admUnlocked" class="admin-input" placeholder="1,2,3"></label>
+        <label class="admin-field">Пройденные главы (номера через запятую)<input id="admCompleted" class="admin-input" placeholder="1,2"></label>
+        <label class="admin-field">Текущая глава<input id="admCurrentChapter" class="admin-input" type="number" min="1" max="12"></label>
+        <button id="adminChaptersSaveBtn" class="button primary">СОХРАНИТЬ ПРОГРЕСС</button>
+      </section>
+      <h2 class="admin-heading">ЖУРНАЛ ДЕЙСТВИЙ АДМИНИСТРАТОРА</h2>
+      <button id="adminLogsBtn" class="button secondary">ЗАГРУЗИТЬ ЖУРНАЛ</button>
+      <div id="adminLogs" class="archive-list"></div>
+      <button id="adminRefreshBtn" class="button secondary">ОБНОВИТЬ СПИСОК</button>
     </section>
 
     <!-- ПЕРЕХОД МЕЖДУ СЦЕНАМИ -->
